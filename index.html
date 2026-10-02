@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Messenger</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Arial, sans-serif;
+      background: #f2f4f7;
+      color: #222;
+    }
+    .app {
+      width: 100%;
+      max-width: 900px;
+      height: 100vh;
+      margin: 0 auto;
+      background: #fff;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      position: relative;
+      padding: 18px 20px;
+      background: #5865f2;
+      color: #fff;
+      text-align: center;
+    }
+    header h2 { margin: 0; }
+    #accountBar {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+    }
+    #accountName {
+      max-width: 160px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    #roomTitle { margin-top: 5px; font-size: 14px; opacity: 0.9; }
+    .screen { padding: 35px 20px; text-align: center; }
+    .screen h1, .screen h2 { margin-top: 0; }
+    .lede { color: #555; margin-top: 0; }
+    input {
+      width: 100%;
+      max-width: 420px;
+      padding: 14px;
+      margin: 8px 0;
+      border: 1px solid #ccc;
+      border-radius: 9px;
+      font-size: 16px;
+      outline: none;
+    }
+    input:focus { border-color: #5865f2; }
+    button {
+      padding: 13px 20px;
+      margin: 8px 4px;
+      border: 0;
+      border-radius: 9px;
+      background: #5865f2;
+      color: #fff;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    button:hover { background: #4752c4; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .secondary { background: #777; }
+    .ghost {
+      background: transparent;
+      color: #5865f2;
+      text-decoration: underline;
+      padding: 6px 8px;
+    }
+    .ghost:hover { background: transparent; color: #4752c4; }
+    .hidden { display: none !important; }
+    .error { color: #d33; margin: 12px; min-height: 20px; }
+    .notice { color: #1b7a3a; margin: 12px auto; max-width: 420px; min-height: 20px; }
+    .tabs { display: flex; justify-content: center; gap: 8px; margin-bottom: 8px; }
+    .tabs button { background: #e8eaff; color: #5865f2; }
+    .tabs button.active { background: #5865f2; color: #fff; }
+    #chat { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+    #messages { flex: 1; overflow-y: auto; padding: 20px; background: #f7f7f7; }
+    .message {
+      background: #fff;
+      padding: 10px 14px;
+      margin-bottom: 10px;
+      border-radius: 10px;
+      max-width: 75%;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+      overflow-wrap: anywhere;
+    }
+    .message.mine { margin-left: auto; background: #e8eaff; }
+    .name { font-size: 12px; font-weight: bold; color: #5865f2; margin-bottom: 4px; }
+    .time { color: #888; font-weight: normal; }
+    .system-message { text-align: center; color: #777; font-size: 13px; margin: 10px 0; }
+    .chat-input {
+      display: flex;
+      padding: 12px;
+      border-top: 1px solid #ddd;
+      gap: 8px;
+      background: #fff;
+    }
+    .chat-input input { flex: 1; max-width: none; margin: 0; }
+    .chat-input button { margin: 0; }
+    .chat-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 12px;
+      border-bottom: 1px solid #ddd;
+    }
+    button.small { padding: 6px 12px; margin: 0; font-size: 13px; }
+    header button.small { background: rgba(255, 255, 255, 0.2); }
+    header button.small:hover { background: rgba(255, 255, 255, 0.32); }
+    .fine {
+      max-width: 460px;
+      margin: 18px auto 0;
+      color: #777;
+      font-size: 13px;
+    }
+    @media (max-width: 600px) {
+      .message { max-width: 88%; }
+      #accountBar { position: static; justify-content: center; margin-top: 10px; }
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h2>Messenger</h2>
+    <div id="accountBar" class="hidden">
+      <span id="accountName"></span>
+      <button class="small" type="button" onclick="logout()">Log out</button>
+    </div>
+    <div id="roomTitle" class="hidden"></div>
+  </header>
+
+  <div id="auth" class="screen">
+    <h1 id="authTitle">Log in</h1>
+    <p class="lede" id="authLede">Sign in to create or join a room.</p>
+    <div class="tabs">
+      <button type="button" id="loginTab" class="active" onclick="showAuthMode('login')">Log in</button>
+      <button type="button" id="signupTab" onclick="showAuthMode('signup')">Sign up</button>
+    </div>
+    <form id="authForm" onsubmit="submitAuth(event)">
+      <input id="displayName" class="hidden" maxlength="30" placeholder="Display name" autocomplete="nickname">
+      <br class="signup-only hidden">
+      <input id="email" type="email" required placeholder="Email" autocomplete="email">
+      <br>
+      <input id="password" type="password" required minlength="6" placeholder="Password" autocomplete="current-password">
+      <br>
+      <input id="passwordConfirm" class="hidden" type="password" minlength="6" placeholder="Confirm password" autocomplete="new-password">
+      <br>
+      <button id="authSubmit" type="submit">Log in</button>
+    </form>
+    <div id="authError" class="error"></div>
+    <div id="authNotice" class="notice"></div>
+    <p class="fine">Accounts and rooms are saved in this browser. GitHub Pages cannot run the old Netlify login server, so someone on another computer will not see these rooms.</p>
+  </div>
+
+  <div id="home" class="screen hidden">
+    <h1>Welcome</h1>
+    <p class="lede">Create a room or join one with its code. This copy stays on this browser.</p>
+    <input id="displayNameEdit" maxlength="30" placeholder="Display name">
+    <br>
+    <button class="secondary" type="button" onclick="saveDisplayName()">Save name</button>
+    <br>
+    <input id="roomName" maxlength="40" placeholder="New room name (optional)">
+    <br>
+    <button type="button" onclick="createRoom()">Create Room</button>
+    <button type="button" onclick="showJoin()">Join with Code</button>
+    <div id="homeError" class="error"></div>
+  </div>
+
+  <div id="joinScreen" class="screen hidden">
+    <h2>Join a Room</h2>
+    <input id="joinCode" maxlength="6" placeholder="Enter 6-character room code" autocomplete="off">
+    <br>
+    <button type="button" onclick="joinRoom()">Join</button>
+    <button class="secondary" type="button" onclick="goHome()">Back</button>
+    <div id="joinError" class="error"></div>
+  </div>
+
+  <div id="chat" class="hidden">
+    <div class="chat-bar">
+      <span id="connectionStatus"></span>
+      <button class="secondary small" type="button" onclick="leaveRoom()">Leave Room</button>
+    </div>
+    <div id="messages"></div>
+    <div class="chat-input">
+      <input id="messageInput" maxlength="2000" placeholder="Type a message..." autocomplete="off">
+      <button type="button" onclick="sendMessage()">Send</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const DB_KEY = "messenger.db";
+  const SESSION_KEY = "messenger.session";
+  const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+  let currentUser = null;
+  let currentRoom = null;
+  let seen = new Set();
+
+  const auth = document.getElementById("auth");
+  const home = document.getElementById("home");
+  const joinScreen = document.getElementById("joinScreen");
+  const chat = document.getElementById("chat");
+  const messagesEl = document.getElementById("messages");
+  const roomTitle = document.getElementById("roomTitle");
+  const accountBar = document.getElementById("accountBar");
+  const accountName = document.getElementById("accountName");
+
+  function loadDb() {
+    try {
+      const data = JSON.parse(localStorage.getItem(DB_KEY) || "null");
+      if (data?.users && data?.rooms && data?.messages) return data;
+    } catch {}
+    return { users: [], rooms: [], messages: [], nextId: 1 };
+  }
+
+  function saveDb(db) {
+    localStorage.setItem(DB_KEY, JSON.stringify(db));
+  }
+
+  function bytesToHex(bytes) {
+    return [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
+  }
+
+  function randomSalt() {
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    return bytesToHex(bytes);
+  }
+
+  async function hashPassword(password, salt) {
+    const data = new TextEncoder().encode(salt + ":" + password);
+    const digest = await crypto.subtle.digest("SHA-256", data);
+    return bytesToHex(new Uint8Array(digest));
+  }
+
+  function makeCode(db) {
+    for (let attempt = 0; attempt < 20; attempt++) {
+      let code = "";
+      const bytes = new Uint8Array(6);
+      crypto.getRandomValues(bytes);
+      for (const b of bytes) code += CODE_CHARS[b % CODE_CHARS.length];
+      if (!db.rooms.some((room) => room.code === code)) return code;
+    }
+    throw new Error("Could not create a room code.");
+  }
+
+  function label(user) {
+    return user?.name || user?.email?.split("@")[0] || "Account";
+  }
+
+  function setAccount(user) {
+    currentUser = user;
+    accountName.textContent = label(user);
+    accountBar.classList.remove("hidden");
+    document.getElementById("displayNameEdit").value = user?.name || "";
+  }
+
+  function showAuthMode(mode) {
+    const signup = mode === "signup";
+    document.getElementById("loginTab").classList.toggle("active", !signup);
+    document.getElementById("signupTab").classList.toggle("active", signup);
+    document.getElementById("authTitle").textContent = signup ? "Sign up" : "Log in";
+    document.getElementById("authLede").textContent = signup
+      ? "Create an account on this browser."
+      : "Sign in to create or join a room.";
+    document.getElementById("displayName").classList.toggle("hidden", !signup);
+    document.querySelectorAll(".signup-only").forEach((el) => el.classList.toggle("hidden", !signup));
+    document.getElementById("passwordConfirm").classList.toggle("hidden", !signup);
+    document.getElementById("passwordConfirm").required = signup;
+    document.getElementById("authSubmit").textContent = signup ? "Create account" : "Log in";
+    document.getElementById("password").autocomplete = signup ? "new-password" : "current-password";
+    document.getElementById("authForm").dataset.mode = mode;
+    document.getElementById("authError").textContent = "";
+    document.getElementById("authNotice").textContent = "";
+  }
+
+  function showAuth() {
+    home.classList.add("hidden");
+    joinScreen.classList.add("hidden");
+    chat.classList.add("hidden");
+    roomTitle.classList.add("hidden");
+    accountBar.classList.add("hidden");
+    auth.classList.remove("hidden");
+  }
+
+  function showHome() {
+    auth.classList.add("hidden");
+    joinScreen.classList.add("hidden");
+    chat.classList.add("hidden");
+    roomTitle.classList.add("hidden");
+    home.classList.remove("hidden");
+    accountBar.classList.remove("hidden");
+  }
+
+  async function submitAuth(event) {
+    event.preventDefault();
+    const mode = document.getElementById("authForm").dataset.mode || "login";
+    const email = document.getElementById("email").value.trim().toLowerCase();
+    const password = document.getElementById("password").value;
+    const name = document.getElementById("displayName").value.trim();
+    const confirm = document.getElementById("passwordConfirm").value;
+    const errorEl = document.getElementById("authError");
+    const noticeEl = document.getElementById("authNotice");
+    errorEl.textContent = "";
+    noticeEl.textContent = "";
+
+    if (mode === "signup" && password !== confirm) {
+      errorEl.textContent = "Passwords do not match.";
+      return;
+    }
+
+    const db = loadDb();
+    const existing = db.users.find((user) => user.email === email);
+
+    if (mode === "signup") {
+      if (existing) {
+        errorEl.textContent = "An account with that email already exists.";
+        return;
+      }
+      const salt = randomSalt();
+      const user = {
+        id: crypto.randomUUID(),
+        email,
+        name: name || email.split("@")[0],
+        salt,
+        passwordHash: await hashPassword(password, salt)
+      };
+      db.users.push(user);
+      saveDb(db);
+      localStorage.setItem(SESSION_KEY, user.id);
+      setAccount(user);
+      showHome();
+      return;
+    }
+
+    if (!existing) {
+      errorEl.textContent = "No account with that email. Sign up first.";
+      return;
+    }
+    const hash = await hashPassword(password, existing.salt);
+    if (hash !== existing.passwordHash) {
+      errorEl.textContent = "Wrong password.";
+      return;
+    }
+    localStorage.setItem(SESSION_KEY, existing.id);
+    setAccount(existing);
+    showHome();
+  }
+
+  function saveDisplayName() {
+    const name = document.getElementById("displayNameEdit").value.trim();
+    if (!name || !currentUser) {
+      document.getElementById("homeError").textContent = "Enter a display name.";
+      return;
+    }
+    const db = loadDb();
+    const user = db.users.find((item) => item.id === currentUser.id);
+    if (!user) return;
+    user.name = name.slice(0, 30);
+    saveDb(db);
+    setAccount(user);
+    document.getElementById("homeError").textContent = "";
+  }
+
+  function logout() {
+    localStorage.removeItem(SESSION_KEY);
+    currentUser = null;
+    currentRoom = null;
+    showAuth();
+    showAuthMode("login");
+  }
+
+  function addSystem(db, roomCode, text) {
+    db.messages.push({
+      id: db.nextId++,
+      roomCode,
+      kind: "system",
+      name: label(currentUser),
+      text,
+      createdAt: new Date().toISOString()
+    });
+  }
+
+  function createRoom() {
+    document.getElementById("homeError").textContent = "";
+    const db = loadDb();
+    const room = {
+      code: makeCode(db),
+      name: document.getElementById("roomName").value.trim().slice(0, 40) || `${label(currentUser)}'s room`,
+      createdAt: new Date().toISOString()
+    };
+    db.rooms.push(room);
+    addSystem(db, room.code, `${label(currentUser)} created the room.`);
+    saveDb(db);
+    document.getElementById("roomName").value = "";
+    enterChat(room);
+    addSystemMessage(`Share this code with friends on this browser: ${room.code}`);
+  }
+
+  function showJoin() {
+    document.getElementById("homeError").textContent = "";
+    home.classList.add("hidden");
+    joinScreen.classList.remove("hidden");
+    document.getElementById("joinCode").focus();
+  }
+
+  function joinRoom() {
+    const code = document.getElementById("joinCode").value.trim().toUpperCase();
+    if (code.length !== 6) {
+      document.getElementById("joinError").textContent = "Room codes are 6 characters.";
+      return;
+    }
+    const db = loadDb();
+    const room = db.rooms.find((item) => item.code === code);
+    if (!room) {
+      document.getElementById("joinError").textContent = "Room not found on this browser.";
+      return;
+    }
+    addSystem(db, code, `${label(currentUser)} joined the room.`);
+    saveDb(db);
+    enterChat(room);
+    for (const message of db.messages.filter((item) => item.roomCode === code)) renderMessage(message);
+  }
+
+  function enterChat(room) {
+    currentRoom = room.code;
+    seen = new Set();
+    messagesEl.innerHTML = "";
+    home.classList.add("hidden");
+    joinScreen.classList.add("hidden");
+    auth.classList.add("hidden");
+    chat.classList.remove("hidden");
+    roomTitle.textContent = `${room.name} · Code: ${room.code}`;
+    roomTitle.classList.remove("hidden");
+    document.getElementById("connectionStatus").textContent = "Saved on this browser";
+    document.getElementById("messageInput").focus();
+  }
+
+  function sendMessage() {
+    const input = document.getElementById("messageInput");
+    const text = input.value.trim();
+    if (!text || !currentRoom) return;
+    const db = loadDb();
+    const message = {
+      id: db.nextId++,
+      roomCode: currentRoom,
+      kind: "chat",
+      name: label(currentUser),
+      text: text.slice(0, 2000),
+      createdAt: new Date().toISOString()
+    };
+    db.messages.push(message);
+    saveDb(db);
+    input.value = "";
+    renderMessage(message);
+  }
+
+  function leaveRoom() {
+    if (currentRoom && currentUser) {
+      const db = loadDb();
+      addSystem(db, currentRoom, `${label(currentUser)} left the room.`);
+      saveDb(db);
+    }
+    currentRoom = null;
+    chat.classList.add("hidden");
+    roomTitle.classList.add("hidden");
+    showHome();
+  }
+
+  function renderMessage(message) {
+    if (seen.has(message.id)) return;
+    seen.add(message.id);
+    if (message.kind === "system") {
+      addSystemMessage(message.text);
+      return;
+    }
+    const div = document.createElement("div");
+    div.className = "message";
+    if (message.name === label(currentUser)) div.classList.add("mine");
+    const name = document.createElement("div");
+    name.className = "name";
+    const time = document.createElement("span");
+    time.className = "time";
+    const date = new Date(message.createdAt);
+    time.textContent = Number.isNaN(date.getTime())
+      ? ""
+      : " · " + date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    name.textContent = message.name;
+    name.appendChild(time);
+    const text = document.createElement("div");
+    text.textContent = message.text;
+    div.appendChild(name);
+    div.appendChild(text);
+    messagesEl.appendChild(div);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  function addSystemMessage(text) {
+    const div = document.createElement("div");
+    div.className = "system-message";
+    div.textContent = text;
+    messagesEl.appendChild(div);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  function goHome() {
+    joinScreen.classList.add("hidden");
+    home.classList.remove("hidden");
+    document.getElementById("joinError").textContent = "";
+  }
+
+  function boot() {
+    const db = loadDb();
+    const id = localStorage.getItem(SESSION_KEY);
+    const user = db.users.find((item) => item.id === id);
+    if (!user) {
+      showAuthMode("login");
+      return;
+    }
+    setAccount(user);
+    showHome();
+  }
+
+  document.getElementById("messageInput").addEventListener("keydown", (event) => {
+    if (event.key === "Enter") sendMessage();
+  });
+  document.getElementById("joinCode").addEventListener("keydown", (event) => {
+    if (event.key === "Enter") joinRoom();
+  });
+
+  showAuthMode("login");
+  boot();
+</script>
+</body>
+</html>
